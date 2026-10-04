@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Group Draw Board</title>
+<meta name="description" content="Sort tournament teams into two groups with a live animated draw.">
+<meta name="theme-color" content="#edf0e9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1110" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script>
+  // Apply the saved theme before first paint to avoid a flash of the wrong one.
+  try {
+    var saved = JSON.parse(localStorage.getItem('group-draw-board.v1') || '{}');
+    var t = saved && saved.settings && saved.settings.theme;
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true">
+  <div class="backdrop__light backdrop__light--a"></div>
+  <div class="backdrop__light backdrop__light--b"></div>
+  <!-- A pitch at regulation proportions: 105 m x 68 m, drawn in decimetres. -->
+  <svg class="backdrop__pitch" viewBox="0 0 1050 680" preserveAspectRatio="xMidYMid slice">
+    <rect x="1" y="1" width="1048" height="678" rx="2"></rect>
+    <line x1="525" y1="0" x2="525" y2="680"></line>
+    <circle cx="525" cy="340" r="91.5"></circle>
+    <circle cx="525" cy="340" r="3.5"></circle>
+    <rect x="0" y="138.5" width="165" height="403"></rect>
+    <rect x="0" y="248.4" width="55" height="183.2"></rect>
+    <circle cx="110" cy="340" r="3.5"></circle>
+    <path d="M165 266.9A91.5 91.5 0 0 1 165 413.1"></path>
+    <rect x="885" y="138.5" width="165" height="403"></rect>
+    <rect x="995" y="248.4" width="55" height="183.2"></rect>
+    <circle cx="940" cy="340" r="3.5"></circle>
+    <path d="M885 266.9A91.5 91.5 0 0 0 885 413.1"></path>
+    <path d="M0 10A10 10 0 0 0 10 0M1040 0A10 10 0 0 0 1050 10M1050 670A10 10 0 0 0 1040 680M10 680A10 10 0 0 0 0 670"></path>
+  </svg>
+</div>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.3"></circle>
+    <path d="M12 6.4 15.5 8.9 14.2 13H9.8L8.5 8.9z" fill="currentColor" stroke="none"></path>
+    <path d="M12 6.4V2.8M15.5 8.9l3.4-1.2M14.2 13l2.2 2.9M9.8 13l-2.2 2.9M8.5 8.9 5.1 7.7"></path>
+  </symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h13M13 6l6 6-6 6"></path>
+  </symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 12H6M11 6l-6 6 6 6"></path>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9h11a5 5 0 0 1 0 10H9"></path><path d="M8 5 4 9l4 4"></path>
+  </symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16.5 4.5l3 3L8 19H5v-3z"></path>
+  </symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"></path>
+  </symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h4l10 12h4M17 3l3 3-3 3M3 18h4l3-3.6M14 8.6 17 5"></path><path d="M17 15l3 3-3 3"></path>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4.2"></circle>
+    <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M18.7 5.3l-1.5 1.5M6.8 17.2l-1.5 1.5"></path>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.2A8.4 8.4 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2z"></path>
+  </symbol>
+  <symbol id="i-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9.5h3L12 5v14l-5-4.5H4z"></path><path d="M16 9a4.5 4.5 0 0 1 0 6M18.8 6.4a8.5 8.5 0 0 1 0 11.2"></path>
+  </symbol>
+  <symbol id="i-sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9.5h3L12 5v14l-5-4.5H4z"></path><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"></path>
+  </symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"></path>
+  </symbol>
+  <symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 9V4h10v5M7 18H5a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"></path><rect x="7" y="14" width="10" height="6" rx="1"></rect>
+  </symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 12a8 8 0 1 1-2.4-5.7"></path><path d="M20 4v4.5h-4.5"></path>
+  </symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand__ball" aria-hidden="true"><use href="#i-ball"></use></svg>
+    <div class="brand__text">
+      <p class="eyebrow">Group stage draw</p>
+      <h1 class="title" id="tourney" contenteditable="plaintext-only" spellcheck="false"
+          data-placeholder="Name your tournament" aria-label="Tournament name"></h1>
+    </div>
+  </div>
+  <div class="topbar__tools">
+    <button class="icon-btn" id="soundBtn" type="button" data-state="on" aria-pressed="true" title="Sound">
+      <svg class="on-icon" aria-hidden="true"><use href="#i-sound-on"></use></svg>
+      <svg class="off-icon" aria-hidden="true"><use href="#i-sound-off"></use></svg>
+      <span class="sr-only">Sound effects</span>
+    </button>
+    <button class="icon-btn" id="themeBtn" type="button" title="Theme">
+      <svg class="on-icon" aria-hidden="true"><use href="#i-moon"></use></svg>
+      <svg class="off-icon" aria-hidden="true"><use href="#i-sun"></use></svg>
+      <span class="sr-only">Switch theme</span>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  <div class="print-only print-head">
+    <h2 id="printTitle"></h2>
+    <p id="printMeta"></p>
+  </div>
+
+  <section class="panel pot" aria-labelledby="potTitle">
+    <div class="panel__head">
+      <h2 class="panel__title" id="potTitle">The pot</h2>
+      <span class="counter"><b id="potCount">0</b> waiting</span>
+    </div>
+
+    <form class="add-form" id="addForm" autocomplete="off">
+      <input class="field" id="teamInput" type="text" placeholder="Add a team&hellip;" maxlength="40"
+             aria-label="Team name" enterkeyhint="done">
+      <button class="btn btn--pitch btn--square" type="submit" aria-label="Add team">+</button>
+    </form>
+
+    <button class="link-btn" id="bulkToggle" type="button" aria-expanded="false">Paste a whole list</button>
+
+    <div class="bulk" id="bulk" hidden>
+      <textarea id="bulkInput" placeholder="One team per line&#10;Lions&#10;Eagles&#10;Falcons" aria-label="Team list"></textarea>
+      <div style="display:flex; gap:8px">
+        <button class="btn btn--sm btn--pitch" id="bulkAdd" type="button">Add them all</button>
+        <button class="btn btn--sm btn--ghost" id="bulkCancel" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <ul class="pot__list" id="potList"></ul>
+
+    <div class="empty" id="potEmpty" hidden>
+      <strong>The pot is empty</strong>
+      Type a team above, or paste your whole list at once.
+      <button class="link-btn" id="sampleBtn" type="button">Load 8 example teams</button>
+    </div>
+
+    <div class="empty empty--done" id="potDone" hidden>
+      <strong>Every team is on a board</strong>
+      Tap a team on a board to send it back to the pot.
+    </div>
+
+    <div class="pot__actions">
+      <button class="btn btn--pitch" id="drawAllBtn" type="button">
+        <svg aria-hidden="true"><use href="#i-ball"></use></svg>
+        <span id="drawAllLabel">Make the draw</span>
+      </button>
+      <button class="btn" id="shuffleBtn" type="button" title="Shuffle the pot">
+        <svg aria-hidden="true"><use href="#i-shuffle"></use></svg>
+        <span class="sr-only">Shuffle the pot</span>
+      </button>
+      <button class="btn" id="undoBtn" type="button" title="Undo" disabled>
+        <svg aria-hidden="true"><use href="#i-undo"></use></svg>
+        <span class="sr-only">Undo</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="boards" id="boards"></div>
+</main>
+
+<footer class="footer">
+  <button class="btn btn--sm" id="copyBtn" type="button">
+    <svg aria-hidden="true"><use href="#i-copy"></use></svg> Copy groups
+  </button>
+  <button class="btn btn--sm" id="printBtn" type="button">
+    <svg aria-hidden="true"><use href="#i-print"></use></svg> Print
+  </button>
+  <button class="btn btn--sm" id="resetBtn" type="button">
+    <svg aria-hidden="true"><use href="#i-reset"></use></svg> Reset draw
+  </button>
+  <span class="spacer"></span>
+  <span class="note" id="savedNote">Your team list is saved on this device.</span>
+  <button class="btn btn--sm btn--ghost btn--danger" id="clearBtn" type="button">Clear everything</button>
+</footer>
+
+<div class="flight" id="flight" aria-hidden="true"></div>
+<div class="toasts" id="toasts" aria-hidden="true"></div>
+<div class="sr-only" id="live" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
